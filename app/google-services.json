@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "770424116825",
+    "project_id": "wallet-bf253",
+    "storage_bucket": "wallet-bf253.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:770424116825:android:9aa8f1b89b3689fccec348",
+        "android_client_info": {
+          "package_name": "com.wallet"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBdym7Yz5bitrsDchpWnN78e01a4jRvax0"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

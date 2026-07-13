@@ -1,0 +1,84 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    // Helper function to check if the requesting user is a platform admin
+    function isAdmin() {
+      return request.auth != null && (
+        // Hardcoded safety checks for designated admin email accounts
+        request.auth.token.email == "admin@gmail.com" ||
+        request.auth.token.email == "royalcrmagent@gmail.com" ||
+        // Check if the user document has isAdmin set to true
+        (exists(/databases/$(database)/documents/users/$(request.auth.uid)) && 
+         get(/databases/$(database)/documents/users/$(request.auth.uid)).data.get('isAdmin', false) == true)
+      );
+    }
+
+    // Helper to check if a user is not modifying sensitive administrative fields
+    function isNotModifyingSensitiveFields() {
+      let sensitive = ['isAdmin', 'isSuspended', 'isOnHold', 'isMaintainer', 'globalBoostRatePercent'];
+      return !request.resource.data.diff(resource.data).affectedKeys().hasAny(sensitive);
+    }
+
+    // Helper to check if balance and boost fields are being modified (for transactions/boost)
+    function isModifyingFinancialFieldsOnly() {
+      let financial = ['balance', 'pausedRemainingMs', 'boostEndTime', 'boostEarnings', 'totalEarnings', 'lastClaimTime'];
+      return request.resource.data.diff(resource.data).affectedKeys().hasOnly(financial);
+    }
+
+    // 1. Rules for User Profiles
+    match /users/{userId} {
+      // Allow authenticated users to read profiles (needed for search/transfer)
+      allow read: if request.auth != null;
+      
+      // Allow users to create their own profile document
+      allow create: if request.auth != null && request.auth.uid == userId;
+      
+      // Allow updates:
+      // - Admins can update anything
+      // - Users can update their own non-sensitive profile info
+      // - Users can update financial fields on other users (for send money transactions)
+      allow update: if request.auth != null && (
+        isAdmin() ||
+        (request.auth.uid == userId && isNotModifyingSensitiveFields()) ||
+        isModifyingFinancialFieldsOnly()
+      );
+
+      allow delete: if isAdmin();
+    }
+
+    // 2. Rules for Transactions
+    match /transactions/{transactionId} {
+      // Users can see their own transactions
+      allow read: if request.auth != null && (
+        isAdmin() || 
+        resource.data.sender == request.auth.uid || 
+        resource.data.receiver == request.auth.uid
+      );
+      
+      // Users can create a transaction record if they are the sender
+      allow create: if request.auth != null && (
+        isAdmin() || 
+        request.resource.data.sender == request.auth.uid
+      );
+      
+      allow update, delete: if isAdmin();
+    }
+
+    // 3. Rules for Global Settings
+    match /settings/{document} {
+      allow read: if request.auth != null;
+      allow write: if isAdmin();
+    }
+
+    // 4. Rules for Email Notification System (Triggering emails)
+    match /mail/{document} {
+      allow create: if request.auth != null;
+      allow read, update, delete: if isAdmin();
+    }
+
+    // 5. Allow checking for existence of values (for unique checks)
+    // This is effectively covered by 'allow read' on /users/{userId}
+    // but in a production app, you'd use a dedicated collection.
+  }
+}
