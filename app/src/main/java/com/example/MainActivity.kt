@@ -9,6 +9,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.platform.LocalContext
 import androidx.fragment.app.FragmentActivity
 import androidx.lifecycle.viewmodel.compose.viewModel
+import kotlinx.coroutines.launch
 import com.example.feature.login.LoginScreen
 import com.example.feature.home.MainScreen
 import com.example.ui.theme.MyApplicationTheme
@@ -26,6 +27,16 @@ class MainActivity : FragmentActivity() {
                 mutableStateOf(sharedPref.getBoolean("is_dark_mode", systemInDark))
             }
             
+            val updateManager = remember { com.example.core.update.InAppUpdateManager(context) }
+            val updateState by updateManager.updateState.collectAsState()
+            val scope = rememberCoroutineScope()
+
+            LaunchedEffect(Unit) {
+                // In production, you would point this to your actual server or a secure JSON file
+                val updateApiUrl = "https://raw.githubusercontent.com/your-username/your-repo/main/version.json"
+                updateManager.checkForUpdates(updateApiUrl)
+            }
+
             MyApplicationTheme(darkTheme = isDarkMode) {
                 WalletApp(
                     isDarkMode = isDarkMode,
@@ -34,6 +45,15 @@ class MainActivity : FragmentActivity() {
                         isDarkMode = newMode
                         sharedPref.edit().putBoolean("is_dark_mode", newMode).apply()
                     }
+                )
+                
+                com.example.presentation.components.InAppUpdateDialog(
+                    updateState = updateState,
+                    onDownload = { info -> 
+                        scope.launch { updateManager.downloadAndInstallUpdate(info) }
+                    },
+                    onInstall = { file -> updateManager.installApk(file) },
+                    onDismiss = { /* Ignored for mandatory */ }
                 )
             }
         }

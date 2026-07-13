@@ -14,16 +14,10 @@ service cloud.firestore {
       );
     }
 
-    // Helper to check if a user is not modifying sensitive administrative fields
+    // Helper to check if a user is not modifying sensitive administrative or financial fields
     function isNotModifyingSensitiveFields() {
-      let sensitive = ['isAdmin', 'isSuspended', 'isOnHold', 'isMaintainer', 'globalBoostRatePercent'];
+      let sensitive = ['isAdmin', 'isSuspended', 'isOnHold', 'isMaintainer', 'globalBoostRatePercent', 'balance', 'totalEarnings', 'boostEarnings', 'pausedRemainingMs', 'boostEndTime'];
       return !request.resource.data.diff(resource.data).affectedKeys().hasAny(sensitive);
-    }
-
-    // Helper to check if balance and boost fields are being modified (for transactions/boost)
-    function isModifyingFinancialFieldsOnly() {
-      let financial = ['balance', 'pausedRemainingMs', 'boostEndTime', 'boostEarnings', 'totalEarnings', 'lastClaimTime'];
-      return request.resource.data.diff(resource.data).affectedKeys().hasOnly(financial);
     }
 
     // 1. Rules for User Profiles
@@ -34,14 +28,13 @@ service cloud.firestore {
       // Allow users to create their own profile document
       allow create: if request.auth != null && request.auth.uid == userId;
       
-      // Allow updates:
-      // - Admins can update anything
-      // - Users can update their own non-sensitive profile info
-      // - Users can update financial fields on other users (for send money transactions)
+      // STRICT SERVER-SIDE VALIDATION ENFORCEMENT:
+      // Clients can no longer update financial fields (balance, etc.) directly.
+      // ALL financial transactions (Deposit, Withdraw, Transfer, Boost Earnings)
+      // MUST be handled by a secure backend server / Cloud Function.
       allow update: if request.auth != null && (
         isAdmin() ||
-        (request.auth.uid == userId && isNotModifyingSensitiveFields()) ||
-        isModifyingFinancialFieldsOnly()
+        (request.auth.uid == userId && isNotModifyingSensitiveFields())
       );
 
       allow delete: if isAdmin();
@@ -56,10 +49,15 @@ service cloud.firestore {
         resource.data.receiver == request.auth.uid
       );
       
-      // Users can create a transaction record if they are the sender
+      // Clients can only create transaction REQUESTS with status 'pending'.
+      // The actual balance update and transaction 'status' (completed) 
+      // MUST be processed by a secure backend server.
       allow create: if request.auth != null && (
         isAdmin() || 
-        request.resource.data.sender == request.auth.uid
+        (
+          request.resource.data.sender == request.auth.uid &&
+          request.resource.data.status == 'pending'
+        )
       );
       
       allow update, delete: if isAdmin();
@@ -76,9 +74,12 @@ service cloud.firestore {
       allow create: if request.auth != null;
       allow read, update, delete: if isAdmin();
     }
-
-    // 5. Allow checking for existence of values (for unique checks)
-    // This is effectively covered by 'allow read' on /users/{userId}
-    // but in a production app, you'd use a dedicated collection.
+    
+    // 5. Rules for Audit Logs
+    match /audit_logs/{logId} {
+      // Clients can write audit logs (e.g., for integrity violations) but not read or modify them
+      allow create: if request.auth != null && request.resource.data.userId == request.auth.uid;
+      allow read, update, delete: if isAdmin();
+    }
   }
 }

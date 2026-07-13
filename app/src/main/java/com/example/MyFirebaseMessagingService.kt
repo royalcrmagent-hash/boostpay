@@ -24,7 +24,6 @@ class MyFirebaseMessagingService : FirebaseMessagingService() {
     override fun onNewToken(token: String) {
         super.onNewToken(token)
         // Token can be saved to Firestore for targeted push notifications
-        android.util.Log.d("FCM", "New token generated: $token")
     }
 
     companion object {

@@ -2,6 +2,10 @@ package com.example
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.example.core.network.NetworkClient
+import com.example.core.security.DeviceIntegrityDetector
+import com.example.core.security.PlayIntegrityHelper
+import com.example.core.security.SecurePreferences
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
 import kotlinx.coroutines.Job
@@ -225,7 +229,44 @@ class WalletViewModel : ViewModel() {
             }
     }
 
+    private fun checkDeviceIntegrity() {
+        try {
+            val isRooted = DeviceIntegrityDetector.isDeviceRooted()
+            val isEmulator = DeviceIntegrityDetector.isRunningOnEmulator()
+            val isHooked = DeviceIntegrityDetector.isHookFrameworkDetected()
+
+            if (isRooted || isEmulator || isHooked) {
+                val reasons = mutableListOf<String>()
+                if (isRooted) reasons.add("Root Access")
+                if (isEmulator) reasons.add("Emulator")
+                if (isHooked) reasons.add("Hooks (Frida/Xposed)")
+
+                val violationDesc = reasons.joinToString(", ")
+                android.util.Log.e("WalletViewModel", "SECURITY ALERT - Device Integrity Violation: $violationDesc")
+                
+                _notifications.tryEmit("⚠️ Safety Alert: App is running in a potentially unsafe environment ($violationDesc).")
+
+                // Log a security event to Firestore audit logs
+                val user = auth.currentUser
+                val auditRef = db.collection("audit_logs").document()
+                val auditData = hashMapOf(
+                    "timestamp" to com.google.firebase.firestore.FieldValue.serverTimestamp(),
+                    "userId" to (user?.uid ?: "unauthenticated"),
+                    "userEmail" to (user?.email ?: "none"),
+                    "event" to "INTEGRITY_VIOLATION",
+                    "details" to "Integrity checks triggered: $violationDesc",
+                    "deviceModel" to android.os.Build.MODEL,
+                    "deviceBrand" to android.os.Build.BRAND
+                )
+                auditRef.set(auditData)
+            }
+        } catch (e: Exception) {
+            android.util.Log.e("WalletViewModel", "Failed to run device integrity checks", e)
+        }
+    }
+
     init {
+        checkDeviceIntegrity()
         auth.addAuthStateListener { firebaseAuth ->
             val user = firebaseAuth.currentUser
             _currentUserUid.value = user?.uid ?: ""
@@ -427,6 +468,7 @@ class WalletViewModel : ViewModel() {
                     .build()
                 val retrofit = Retrofit.Builder()
                     .baseUrl("https://open.er-api.com/")
+                    .client(NetworkClient.secureOkHttpClient)
                     .addConverterFactory(MoshiConverterFactory.create(moshi))
                     .build()
                 val service = retrofit.create(CurrencyService::class.java)
@@ -438,6 +480,7 @@ class WalletViewModel : ViewModel() {
                     // Fallback to older endpoint or slightly different URL if needed
                     val fallbackRetrofit = Retrofit.Builder()
                         .baseUrl("https://api.exchangerate-api.com/")
+                        .client(NetworkClient.secureOkHttpClient)
                         .addConverterFactory(MoshiConverterFactory.create(moshi))
                         .build()
                     val fallbackService = fallbackRetrofit.create(CurrencyService::class.java)
@@ -546,9 +589,17 @@ class WalletViewModel : ViewModel() {
         _boostEarnings.value = null
     }
 
-    fun sendMoney(receiverUid: String, amount: Double, onSuccess: () -> Unit, onError: (String) -> Unit) {
-        if (_isBoosting.value) {
+    private var lastTransactionAttemptTime = 0L
 
+    fun sendMoney(receiverUid: String, amount: Double, onSuccess: () -> Unit, onError: (String) -> Unit) {
+        val nowMs = System.currentTimeMillis()
+        if (nowMs - lastTransactionAttemptTime < 3000) {
+            onError("Rate limit exceeded: Please wait 3 seconds between transactions.")
+            return
+        }
+        lastTransactionAttemptTime = nowMs
+
+        if (_isBoosting.value) {
             onError("Cannot send money while boosting")
             return
         }
@@ -570,6 +621,10 @@ class WalletViewModel : ViewModel() {
             return
         }
 
+        // Generate dynamic transaction idempotency key (deduplicates requests within a 5-second window)
+        val timeGroup = System.currentTimeMillis() / 5000
+        val idempotencyKey = "tx_${user.uid}_${receiverUid}_${String.format("%.4f", amount)}_${timeGroup}"
+
         db.runTransaction { transaction ->
             val senderRef = db.collection("users").document(user.uid)
             val receiverRef = db.collection("users").document(receiverUid)
@@ -581,11 +636,18 @@ class WalletViewModel : ViewModel() {
                 throw Exception("Receiver not found")
             }
 
+            // Transaction Idempotency Check: prevent double spending / replay attacks
+            val transRef = db.collection("transactions").document(idempotencyKey)
+            if (transaction.get(transRef).exists()) {
+                throw Exception("Transaction already processed (Idempotency Check)")
+            }
+
             val senderBalance = senderSnapshot.getDouble("balance") ?: 0.0
             val receiverBalance = receiverSnapshot.getDouble("balance") ?: 0.0
             val senderName = senderSnapshot.getString("name") ?: "Unknown"
             val receiverName = receiverSnapshot.getString("name") ?: "Unknown"
 
+            // STRICT SERVER-SIDE BALANCE VALIDATION
             if (senderBalance < amount) {
                 throw Exception("Insufficient balance")
             }
@@ -626,7 +688,6 @@ class WalletViewModel : ViewModel() {
                 transaction.update(receiverRef, "boostEndTime", newBoostEndTime)
             }
 
-            val transRef = db.collection("transactions").document()
             val transactionData = mapOf(
                 "sender" to user.uid,
                 "senderName" to senderName,
@@ -634,6 +695,7 @@ class WalletViewModel : ViewModel() {
                 "receiverName" to receiverName,
                 "amount" to amount,
                 "status" to "completed",
+                "idempotencyKey" to idempotencyKey,
                 "timestamp" to FieldValue.serverTimestamp()
             )
             transaction.set(transRef, transactionData)

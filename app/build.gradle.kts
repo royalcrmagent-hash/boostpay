@@ -42,7 +42,8 @@ android {
   buildTypes {
     release {
       isCrunchPngs = false
-      isMinifyEnabled = false
+      isMinifyEnabled = true
+      isShrinkResources = true
       proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
       signingConfig = signingConfigs.getByName("release")
     }
@@ -107,6 +108,7 @@ dependencies {
   // If you are using Firebase Auth with other providers (e.g. Email/Password), you may only need
   // firebase-auth.
   implementation(libs.firebase.auth)
+  implementation(libs.androidx.security.crypto)
   // implementation(libs.androidx.credentials)
   // implementation(libs.androidx.credentials.play.services)
   // implementation(libs.googleid)
