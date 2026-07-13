@@ -1,0 +1,12 @@
+{
+  "versionCode": 2,
+  "versionName": "1.0.1",
+  "mandatory": false,
+  "apkUrl": "https://github.com/royalcrmagent-hash/boostpay/releases/download/v1.0.1/base.2.apk",
+  "sha256": "4ede7f59bfc45b0dd47899e9559d471f284c4c5db2ea0431b3c0c2b2be4e6b4c",
+  "signature": "2B:4B:34:25:06:0B:47:FE:A7:92:84:F2:A7:8D:AC:DA:4D:FF:E6:54:71:B9:43:09:5F:B8:5E:A0:5B:1C:2B:96",
+  "apkSize": 31257894,
+  "minSupportedVersion": 1,
+  "expiresAt": "2026-12-31T23:59:59Z",
+  "metadataVersion": 1
+}
