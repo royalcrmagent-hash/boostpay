@@ -1,4 +1,4 @@
-package com.example.ui.screens
+package com.example.feature.login
 
 import android.provider.Settings
 import androidx.compose.animation.AnimatedVisibility
@@ -26,7 +26,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.WalletViewModel
-import com.example.ui.utils.PhoneNumberVisualTransformation
+import com.example.presentation.utils.PhoneNumberVisualTransformation
 import com.google.firebase.auth.FirebaseAuth
 import kotlinx.coroutines.delay
 

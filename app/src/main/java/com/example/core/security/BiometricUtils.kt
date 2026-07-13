@@ -1,4 +1,4 @@
-package com.example.ui.utils
+package com.example.core.security
 
 import android.content.Context
 import androidx.biometric.BiometricManager

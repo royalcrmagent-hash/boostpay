@@ -27,13 +27,10 @@ import retrofit2.Retrofit
 import retrofit2.converter.moshi.MoshiConverterFactory
 import retrofit2.http.GET
 import java.util.Date
-
-data class CurrencyData(
-    val code: String, 
-    val symbol: String, 
-    val name: String = "",
-    val flag: String = ""
-)
+import com.example.domain.models.CurrencyData
+import com.example.domain.models.Transaction
+import com.example.domain.models.UserLeaderboard
+import com.example.domain.models.ChatMessage
 
 data class CurrencyResponse(
     val result: String = "",
@@ -79,32 +76,6 @@ fun getFlagEmoji(currencyCode: String): String {
         "🏳️"
     }
 }
-
-data class Transaction(
-    val sender: String = "",
-    val senderName: String = "",
-    val receiver: String = "",
-    val receiverName: String = "",
-    val amount: Double = 0.0,
-    val durationSeconds: Int? = null,
-    val timestamp: Timestamp? = null,
-    val status: String = "completed"
-)
-
-data class UserLeaderboard(
-    val uid: String = "",
-    val name: String = "",
-    val balance: Double = 0.0,
-    val totalBoosted: Double = 0.0
-)
-
-data class ChatMessage(
-    val id: String = "",
-    val uid: String = "",
-    val name: String = "",
-    val message: String = "",
-    val timestamp: Long = 0L
-)
 
 class WalletViewModel : ViewModel() {
     private val auth = FirebaseAuth.getInstance()

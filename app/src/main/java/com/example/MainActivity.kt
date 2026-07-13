@@ -9,8 +9,8 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.platform.LocalContext
 import androidx.fragment.app.FragmentActivity
 import androidx.lifecycle.viewmodel.compose.viewModel
-import com.example.ui.screens.LoginScreen
-import com.example.ui.screens.MainScreen
+import com.example.feature.login.LoginScreen
+import com.example.feature.home.MainScreen
 import com.example.ui.theme.MyApplicationTheme
 import com.google.firebase.auth.FirebaseAuth
 

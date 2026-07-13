@@ -1,4 +1,4 @@
-package com.example.ui.utils
+package com.example.presentation.utils
 
 fun getUserStatus(rank: Int?, balance: Double): String {
     return when {
