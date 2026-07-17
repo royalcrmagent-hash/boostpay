@@ -1,8 +1,8 @@
 {
-  "versionCode": 6,
-  "versionName": "1.0.6",
+  "versionCode": 7,
+  "versionName": "1.0.7",
   "mandatory": true,
-  "apkUrl": "https://github.com/royalcrmagent-hash/boostpay/releases/download/v1.0.6/base.6.apk",
+  "apkUrl": "https://github.com/royalcrmagent-hash/boostpay/releases/download/v1.0.7/base.7.apk",
   "sha256": "83dbf3e6c9f767b3c5438c0411de8a7edcb5439b6202260c8738c1f7a69d0b87",
   "signature": "2B:4B:34:25:06:0B:47:FE:A7:92:84:F2:A7:8D:AC:DA:4D:FF:E6:54:71:B9:43:09:5F:B8:5E:A0:5B:1C:2B:96",
   "apkSize": 30283213,
